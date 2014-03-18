@@ -1,0 +1,41 @@
+#!/bin/bash
+# runs a continuous loop on active sites (Debian/Ubuntu Apache Configuration)
+# Outputs http status code and sitename
+# Green / Red / Etc from colors.sh
+# Sends email if site down; can setup email filter for sms relay
+
+
+source /usr/local/bin/colors
+
+activeSites=`/usr/sbin/a2query -s | awk '{print $1}' | sed '/default/d' | sort `
+
+echo "Monitoring Active Sites {from `hostname`}:"
+
+while true ; do echo ""
+  for site in $activeSites; do 
+
+	sitename=$(echo $site | sed 's/www\.//g')
+	statusCode=$(curl -sL -w "%{http_code}\\n" "http://$sitename/"  -o /dev/null)
+
+	sleep 0.1
+
+	  if [ $statusCode == 200 ]; then 
+	    printf "$Green $statusCode OK  $site \e[0m\n" ;
+
+		elif [ $statusCode == 000 ]; then
+		    printf "$Red $statusCode DOWN  $site \e[0m\n" ;
+		    echo "$site found DOWN @ `date`!" >> /var/log/apache2/found_down.log 
+		    mail -s "$site found DOWN @ `date`" tjl@thomasjlaffoon.com
+		
+		elif [ $statusCode == 401 ]; then
+		    printf "$Yellow $statusCode AUTH  $site \e[0m\n" ;
+
+		else 
+		    printf "$Purple $statusCode EH? $site \e[0m\n" ;
+	  fi
+
+  done
+
+  sleep 30
+
+done	
